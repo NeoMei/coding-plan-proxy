@@ -68,26 +68,23 @@ impl ProxyManager {
             }
             *guard = None;
         }
-        // Kill anything on the port — try tskill (no admin needed on Windows)
+        // Kill anything on the port
         let port = self.port;
         #[cfg(windows)]
         {
-            // tskill by port: find PID from netstat then kill
-            if let Ok(out) = std::process::Command::new("cmd")
-                .args(["/c", &format!("for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :{port} ^| findstr LISTENING') do taskkill /F /PID %a >nul 2>&1")])
+            let cmd_str = format!("for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :{port} ^| findstr LISTENING') do taskkill /F /PID %a >nul 2>&1");
+            let _ = std::process::Command::new("cmd")
+                .args(["/c", &cmd_str])
                 .creation_flags(0x08000000)
-                .output()
-            {
-                log::info!("stop cmd output: {}", String::from_utf8_lossy(&out.stdout).trim());
-            }
+                .output();
         }
-        // Wait for port to free
-        for _ in 0..5 {
+        // Wait for port to free (max 3s)
+        for _ in 0..6 {
             if !self.is_port_listening() { return Ok(()); }
             std::thread::sleep(Duration::from_millis(500));
         }
         if self.is_port_listening() {
-            Err(format!("Port {} still in use after stop", self.port))
+            Err(format!("Port {} still busy. Run: taskkill /F /IM node.exe", self.port))
         } else {
             Ok(())
         }
