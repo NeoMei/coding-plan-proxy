@@ -82,24 +82,22 @@ impl ProxyManager {
     }
 
     pub fn stop(&self) -> Result<(), String> {
+        // Kill our managed child
         if let Ok(mut guard) = self.child.lock() {
             if let Some(ref mut child) = *guard {
-                child.kill().map_err(|e| format!("Failed to stop proxy: {}", e))?;
+                child.kill().ok();
                 child.wait().ok();
             }
             *guard = None;
         }
-        // Also kill any other process on our port
-        #[cfg(windows)]
-        {
-            if let Ok(output) = std::process::Command::new("cmd")
-                .args(["/c", &format!("for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :{}') do taskkill /F /PID %a", self.port)])
+        // Kill any process holding our port
+        let port = self.port;
+        std::thread::spawn(move || {
+            let _ = std::process::Command::new("cmd")
+                .args(["/c", &format!("for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :{port}') do taskkill /F /PID %a >nul 2>&1")])
                 .creation_flags(0x08000000)
-                .output()
-            {
-                let _ = output;
-            }
-        }
+                .spawn();
+        });
         Ok(())
     }
 }

@@ -103,6 +103,8 @@ function App() {
     return a.sort_index - b.sort_index;
   });
 
+  const hasKeys = providers.some(p => p.api_key.length > 4);
+
   const applyModel = async (model: string) => {
     await invoke("apply_to_codex", { model });
     refreshStatus();
@@ -174,11 +176,14 @@ function App() {
             {theme === "dark" ? "☀" : "☾"}
           </button>
           {/* Proxy toggle */}
-          <button onClick={toggleProxy}
+          <button onClick={toggleProxy} disabled={!proxyRunning && !hasKeys}
+            title={!proxyRunning && !hasKeys ? "Add a provider with an API key first" : ""}
             className={`px-4 py-1.5 rounded text-sm font-medium transition ${
               proxyRunning
                 ? "bg-red-600/10 text-red-600 border border-red-600/20 hover:bg-red-600/20"
-                : "bg-emerald-600/10 text-emerald-600 border border-emerald-600/20 hover:bg-emerald-600/20"
+                : hasKeys
+                  ? "bg-emerald-600/10 text-emerald-600 border border-emerald-600/20 hover:bg-emerald-600/20"
+                  : "bg-zinc-700/20 text-zinc-500 border border-zinc-700/30 cursor-not-allowed"
             }`}>
             {proxyRunning ? t("proxy.stop") : t("proxy.start")}
           </button>

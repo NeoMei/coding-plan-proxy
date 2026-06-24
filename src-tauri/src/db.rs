@@ -96,8 +96,8 @@ impl Database {
             ];
             for (i, (id, name, model, upstream, ctx, max_tok)) in presets.iter().enumerate() {
                 conn.execute(
-                    "INSERT INTO providers (id, name, model, upstream, api_key, context_window, max_output_tokens, enabled, sort_index)
-                     VALUES (?1, ?2, ?3, ?4, '', ?5, ?6, 1, ?7)",
+                    "INSERT INTO providers (id, name, model, upstream, api_key, context_window, max_output_tokens, enabled, sort_index, verified)
+                     VALUES (?1, ?2, ?3, ?4, '', ?5, ?6, 1, ?7, 0)",
                     rusqlite::params![id, name, model, upstream, *ctx as i64, *max_tok as i64, i as i32],
                 ).ok();
             }
@@ -136,14 +136,14 @@ impl Database {
     pub fn upsert_provider(&self, p: &Provider) -> Result<(), String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         conn.execute(
-            "INSERT INTO providers (id, name, model, upstream, api_key, context_window, max_output_tokens, enabled, sort_index)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            "INSERT INTO providers (id, name, model, upstream, api_key, context_window, max_output_tokens, enabled, sort_index, verified)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
              ON CONFLICT(id) DO UPDATE SET
                 name=excluded.name, model=excluded.model, upstream=excluded.upstream,
                 api_key=excluded.api_key, context_window=excluded.context_window,
                 max_output_tokens=excluded.max_output_tokens, enabled=excluded.enabled,
-                sort_index=excluded.sort_index",
-            params![p.id, p.name, p.model, p.upstream, p.api_key, p.context_window as i64, p.max_output_tokens as i64, p.enabled as i64, p.sort_index],
+                sort_index=excluded.sort_index, verified=excluded.verified",
+            params![p.id, p.name, p.model, p.upstream, p.api_key, p.context_window as i64, p.max_output_tokens as i64, p.enabled as i64, p.sort_index, p.verified as i64],
         ).map_err(|e| e.to_string())?;
         Ok(())
     }
