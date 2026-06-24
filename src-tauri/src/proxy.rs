@@ -16,7 +16,6 @@ impl ProxyManager {
         ProxyManager { child: Mutex::new(None), port }
     }
 
-    /// Check if the proxy port is accepting connections (regardless of who started it)
     pub fn is_port_listening(&self) -> bool {
         TcpStream::connect_timeout(
             &format!("127.0.0.1:{}", self.port).parse().unwrap(),
@@ -24,65 +23,44 @@ impl ProxyManager {
         ).is_ok()
     }
 
-    /// Check if our managed child process is alive, OR the port is already in use
     pub fn is_running(&self) -> bool {
-        // First check our own child
         if let Ok(mut guard) = self.child.lock() {
             if let Some(ref mut child) = *guard {
                 match child.try_wait() {
                     Ok(Some(status)) => {
-                        log::info!("Proxy exited with status: {:?}", status.code());
+                        log::info!("Proxy exited: {:?}", status.code());
                         *guard = None;
-                        // Fall through to port check
                     }
                     Ok(None) => return true,
-                    Err(e) => {
-                        log::warn!("Proxy wait error: {}", e);
-                        *guard = None;
-                    }
+                    Err(_) => { *guard = None; }
                 }
             }
         }
-        // If our child isn't running, check if another proxy is on the port
         self.is_port_listening()
     }
 
     pub fn port(&self) -> u16 { self.port }
 
     pub fn start(&self, proxy_path: &str) -> Result<(), String> {
-        // If port is already in use, consider it "started"
         if self.is_port_listening() {
-            log::info!("Proxy port {} already in use — reusing existing proxy", self.port);
+            log::info!("Proxy port {} already in use", self.port);
             return Ok(());
         }
-
         if self.is_running() { return Ok(()); }
 
         log::info!("Starting proxy: node {}", proxy_path);
-
         let mut cmd = Command::new("node");
-        cmd.arg(proxy_path)
-            .env("PROXY_PORT", self.port.to_string());
+        cmd.arg(proxy_path).env("PROXY_PORT", self.port.to_string());
+        #[cfg(windows)] { cmd.creation_flags(0x08000000); }
 
-        #[cfg(windows)]
-        {
-            cmd.creation_flags(0x08000000);
-        }
-
-        let child = cmd.spawn()
-            .map_err(|e| format!("Failed to start proxy: {}", e))?;
-
-        // Wait a moment for the proxy to bind the port
+        let child = cmd.spawn().map_err(|e| format!("Failed to start proxy: {}", e))?;
         std::thread::sleep(Duration::from_millis(500));
-
-        if let Ok(mut guard) = self.child.lock() {
-            *guard = Some(child);
-        }
+        if let Ok(mut guard) = self.child.lock() { *guard = Some(child); }
         Ok(())
     }
 
     pub fn stop(&self) -> Result<(), String> {
-        // Kill our managed child
+        // Kill our child
         if let Ok(mut guard) = self.child.lock() {
             if let Some(ref mut child) = *guard {
                 child.kill().ok();
@@ -90,15 +68,29 @@ impl ProxyManager {
             }
             *guard = None;
         }
-        // Kill any process holding our port
+        // Kill anything on the port — try tskill (no admin needed on Windows)
         let port = self.port;
-        std::thread::spawn(move || {
-            let _ = std::process::Command::new("cmd")
-                .args(["/c", &format!("for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :{port}') do taskkill /F /PID %a >nul 2>&1")])
+        #[cfg(windows)]
+        {
+            // tskill by port: find PID from netstat then kill
+            if let Ok(out) = std::process::Command::new("cmd")
+                .args(["/c", &format!("for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :{port} ^| findstr LISTENING') do taskkill /F /PID %a >nul 2>&1")])
                 .creation_flags(0x08000000)
-                .spawn();
-        });
-        Ok(())
+                .output()
+            {
+                log::info!("stop cmd output: {}", String::from_utf8_lossy(&out.stdout).trim());
+            }
+        }
+        // Wait for port to free
+        for _ in 0..5 {
+            if !self.is_port_listening() { return Ok(()); }
+            std::thread::sleep(Duration::from_millis(500));
+        }
+        if self.is_port_listening() {
+            Err(format!("Port {} still in use after stop", self.port))
+        } else {
+            Ok(())
+        }
     }
 }
 
