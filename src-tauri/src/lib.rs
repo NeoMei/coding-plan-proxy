@@ -76,18 +76,18 @@ pub fn run() {
 }
 
 fn find_proxy_path(app: &tauri::App) -> Result<String, String> {
+    // Try bundled resource first
     let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
     let bundled = resource_dir.join("proxy").join("index.mjs");
     if bundled.exists() {
         return Ok(bundled.to_string_lossy().to_string());
     }
-    // Dev: relative to project
-    let dev = std::env::current_dir().unwrap_or_default()
-        .parent().map(|p| p.join("proxy").join("index.mjs"));
-    if let Some(p) = dev {
-        if p.exists() {
-            return Ok(p.to_string_lossy().to_string());
+    // Dev fallback: look relative to the exe and common project structures
+    if let Ok(exe) = std::env::current_exe() {
+        for ancestor in exe.ancestors().take(4) {
+            let candidate = ancestor.join("proxy").join("index.mjs");
+            if candidate.exists() { return Ok(candidate.to_string_lossy().to_string()); }
         }
     }
-    Err("Proxy index.mjs not found".into())
+    Err("proxy/index.mjs not found".into())
 }

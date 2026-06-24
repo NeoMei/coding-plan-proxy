@@ -7,7 +7,7 @@ fn codex_dir() -> PathBuf {
     dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")).join(".codex")
 }
 
-fn catalog_path() -> PathBuf {
+fn catalog_file() -> PathBuf {
     codex_dir().join("models-catalog.json")
 }
 
@@ -16,14 +16,11 @@ pub fn write_codex_config(model: &str, proxy_port: u16, context_window: u64) -> 
     let dir = codex_dir();
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
-    let catalog_abs = catalog_path();
-    let catalog_str = catalog_abs.to_string_lossy().replace('\\', "\\\\");
-
     let config = format!(
         r#"model = "{model}"
 model_provider = "custom"
 model_context_window = {ctx}
-model_catalog_json = "{catalog}"
+model_catalog_json = "models-catalog.json"
 
 [model_providers.custom]
 name = "Coding Plan"
@@ -36,7 +33,6 @@ js_repl = false
 "#,
         model = model,
         ctx = context_window,
-        catalog = catalog_str,
         port = proxy_port
     );
 
@@ -119,7 +115,7 @@ pub fn write_model_catalog(providers: &[Provider]) -> Result<(), String> {
         .collect();
 
     let catalog = json!({"models": models});
-    let path = catalog_path();
+    let path = catalog_file();
     fs::write(&path, serde_json::to_string_pretty(&catalog).unwrap())
         .map_err(|e| e.to_string())?;
     Ok(())
