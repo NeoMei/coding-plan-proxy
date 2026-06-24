@@ -66,9 +66,17 @@ function App() {
   const toggleProxy = async () => {
     try {
       if (proxyRunning) {
+        setStatusMsg("Stopping...");
         await invoke("stop_proxy");
+        // Wait and verify
+        await new Promise(r => setTimeout(r, 1000));
         setStatusMsg("");
       } else {
+        if (!hasKeys) {
+          setStatusMsg("Add a provider with an API key first");
+          return;
+        }
+        setStatusMsg("Starting...");
         await invoke("start_proxy");
         setStatusMsg("");
       }
@@ -80,16 +88,20 @@ function App() {
 
   const testProvider = async (p: Provider) => {
     setTesting(t => ({ ...t, [p.id]: true }));
+    setStatusMsg(`Testing ${p.name}...`);
     try {
       await invoke<string>("test_connection", { provider: p });
       setTestResult(t => ({ ...t, [p.id]: "ok" }));
       await invoke("set_verified", { id: p.id, verified: true });
+      setStatusMsg(`✓ ${p.name}: connected`);
     } catch (e: any) {
       setTestResult(t => ({ ...t, [p.id]: "fail" }));
       await invoke("set_verified", { id: p.id, verified: false });
+      setStatusMsg(`✗ ${p.name}: ${String(e).slice(0, 80)}`);
     }
     setTesting(t => ({ ...t, [p.id]: false }));
-    refreshProviders();
+    await refreshProviders();
+    setTimeout(() => setStatusMsg(""), 3000);
   };
 
   // Sort: connected providers first, then untested, then failed
