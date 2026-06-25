@@ -176,10 +176,16 @@ pub fn fetch_models(upstream: String, api_key: String) -> Result<serde_json::Val
     let output = cmd.output().map_err(|e| format!("curl: {e}"))?;
     let body = String::from_utf8_lossy(&output.stdout).to_string();
     
-    // If Anthropic endpoint returns empty, try OpenAI-compatible /v1/models with Bearer
+    // If Anthropic endpoint returns empty, try base domain's /v1/models with Bearer
     if body.trim().is_empty() {
-        let base_origin = upstream.split("/v1").next().unwrap_or(&upstream).trim_end_matches('/');
-        let fallback_url = format!("{base_origin}/v1/models");
+        // Extract origin: https://api.deepseek.com/anthropic/v1 → https://api.deepseek.com
+        let origin = if let Some(after_scheme) = upstream.find("://") {
+            let rest = &upstream[after_scheme + 3..];
+            if let Some(first_slash) = rest.find('/') {
+                &upstream[..after_scheme + 3 + first_slash]
+            } else { upstream.trim_end_matches('/') }
+        } else { upstream.trim_end_matches('/') };
+        let fallback_url = format!("{origin}/v1/models");
         let mut cmd2 = std::process::Command::new("curl");
         cmd2.arg("-s").arg("--max-time").arg("8").arg("--noproxy").arg("*")
             .arg(&fallback_url)
