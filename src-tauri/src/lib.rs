@@ -143,23 +143,33 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-fn build_tray_menu(app: &tauri::AppHandle, models: &[(&str, &str)], proxy_running: bool) -> Result<tauri::menu::Menu<tauri::Wry>, tauri::Error> {
-    use tauri::menu::{MenuBuilder, MenuItemBuilder};
+fn build_tray_menu(app: &tauri::AppHandle, providers: &[(&str, &str, &str)], proxy_running: bool) -> Result<tauri::menu::Menu<tauri::Wry>, tauri::Error> {
+    use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+    use std::collections::BTreeMap;
+    
+    // Group models by vendor name
+    let mut vendors: BTreeMap<&str, Vec<(&str, &str)>> = BTreeMap::new();
+    for (model, name, _vendor) in providers {
+        // Extract vendor from name: "Kimi Coding Plan" → vendor = "Kimi"
+        let vendor = name.split_whitespace().next().unwrap_or(name);
+        vendors.entry(vendor).or_default().push((*model, *name));
+    }
     
     let mut builder = MenuBuilder::new(app);
     
-    // Show/Hide
     builder = builder.item(&MenuItemBuilder::with_id("toggle_window", "Show/Hide").build(app)?);
     builder = builder.separator();
     
-    // Model list
-    for (model, name) in models {
-        let label = format!("  ● {name}");
-        builder = builder.item(&MenuItemBuilder::with_id(&format!("model:{model}"), &label).build(app)?);
+    // Submenus for each vendor
+    for (vendor, models) in &vendors {
+        let mut sub = SubmenuBuilder::new(app, *vendor);
+        for (model, name) in models {
+            sub = sub.item(&MenuItemBuilder::with_id(&format!("model:{model}"), *name).build(app)?);
+        }
+        builder = builder.item(&sub.build()?);
     }
     builder = builder.separator();
     
-    // Start/Stop proxy
     let proxy_label = if proxy_running { "Stop Proxy" } else { "Start Proxy" };
     builder = builder.item(&MenuItemBuilder::with_id("toggle_proxy", proxy_label).build(app)?);
     builder = builder.separator();
