@@ -307,9 +307,8 @@ function App() {
               <button
                 onClick={async () => {
                   try {
-                    const resp = await fetch("http://127.0.0.1:15731/health");
-                    if (resp.ok) setCodexTest("ok");
-                    else setCodexTest("fail");
+                    const running = await invoke<boolean>("proxy_status");
+                    setCodexTest(running ? "ok" : "fail");
                   } catch { setCodexTest("fail"); }
                 }}
                 className={`px-3 py-1.5 text-sm rounded border transition ${

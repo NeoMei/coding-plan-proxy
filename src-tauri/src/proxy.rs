@@ -68,13 +68,15 @@ impl ProxyManager {
             }
             *guard = None;
         }
-        // Kill anything on the port
+        // Kill anything on the port via PowerShell (more reliable than cmd for /f)
         let port = self.port;
         #[cfg(windows)]
         {
-            let cmd_str = format!("for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :{port} ^| findstr LISTENING') do taskkill /F /PID %a >nul 2>&1");
-            let _ = std::process::Command::new("cmd")
-                .args(["/c", &cmd_str])
+            let ps_cmd = format!(
+                "Stop-Process -Id (Get-NetTCPConnection -LocalPort {port} -ErrorAction SilentlyContinue).OwningProcess -Force -ErrorAction SilentlyContinue",
+            );
+            let _ = std::process::Command::new("powershell")
+                .args(["-Command", &ps_cmd])
                 .creation_flags(0x08000000)
                 .output();
         }
