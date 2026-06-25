@@ -261,16 +261,15 @@ function App() {
                   </div>
                   {/* Actions */}
                   <div className="flex items-center gap-1 shrink-0">
-                    {p.enabled && proxyRunning && (
-                      <button onClick={() => applyModel(p.model)}
-                        className={`text-xs px-2 py-1 rounded border transition ${
-                          theme === "light"
-                            ? "border-violet-200 text-violet-600 hover:bg-violet-50"
-                            : "border-violet-600/30 text-violet-400 hover:bg-violet-600/20"
-                        }`}>
-                        {t("providers.apply")}
-                      </button>
-                    )}
+                    {/* Active toggle */}
+                    <button onClick={() => applyModel(p.model)}
+                      className={`text-xs px-2 py-1 rounded border transition ${
+                        p.model === currentModel
+                          ? "bg-emerald-600/20 text-emerald-400 border border-emerald-600/30"
+                          : (theme === "light" ? "border-zinc-200 text-zinc-500 hover:border-emerald-300" : "border-zinc-700 text-zinc-500 hover:border-emerald-600")
+                      }`}>
+                      {p.model === currentModel ? "● Active" : "○ Activate"}
+                    </button>
                     <button onClick={() => testProvider(p)} disabled={testing[p.id]}
                       className={`p-1.5 text-xs rounded transition disabled:opacity-50 ${theme === "light" ? "hover:bg-zinc-100 text-zinc-400" : "hover:bg-zinc-700 text-zinc-400"}`}>
                       {testing[p.id] ? "⏳" : "🔍"}

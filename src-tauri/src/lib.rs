@@ -6,6 +6,7 @@ mod proxy;
 use db::Database;
 use proxy::{ProxyManager, SharedProxyManager};
 use std::sync::{Arc, Mutex as StdMutex};
+use std::collections::BTreeMap;
 use tauri::Manager;
 use tauri::tray::TrayIcon;
 
@@ -79,9 +80,27 @@ pub fn run() {
                                 let db = app_handle.state::<Database>();
                                 let proxy = app_handle.state::<SharedProxyManager>();
                                 if let Ok(providers) = db.list_providers() {
+                                    // Update proxy config with all verified providers
+                                    let config: BTreeMap<String, serde_json::Value> = providers.iter()
+                                        .filter(|p| !p.api_key.is_empty())
+                                        .map(|p| {
+                                            let is_chat = !p.upstream.contains("/anthropic");
+                                            (p.model.clone(), serde_json::json!({"upstream": p.upstream, "apiKey": p.api_key, "protocol": if is_chat { "chat" } else { "anthropic" }}))
+                                        })
+                                        .collect();
+                                    let config_path = dirs::home_dir().unwrap_or_default().join(".coding-plan-proxy.json");
+                                    let _ = std::fs::write(&config_path, serde_json::to_string_pretty(&config).unwrap_or_default());
+                                    // Restart proxy with new config
+                                    let was_running = proxy.is_running();
+                                    if was_running { let _ = proxy.stop(); }
                                     let _ = codex_config::write_codex_config(&model, proxy.port(), 262144, &providers);
                                     let _ = codex_config::write_model_catalog(&providers);
                                     let _ = codex_config::write_codex_auth();
+                                    if was_running {
+                                        if let Ok(proxy_path) = find_proxy_path(&app_handle) {
+                                            let _ = proxy.start(&proxy_path);
+                                        }
+                                    }
                                 }
                             }
                             _ => {}
