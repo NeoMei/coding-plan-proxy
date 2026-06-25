@@ -98,6 +98,7 @@ pub fn run() {
             commands::apply_to_codex,
             commands::read_codex_config,
             commands::set_verified,
+            commands::fetch_models,
             commands::get_setting,
             commands::set_setting,
         ])

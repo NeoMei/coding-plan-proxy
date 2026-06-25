@@ -406,6 +406,27 @@ function ProviderEditor({ provider, isQuick, onSave, onClose, theme }: {
   provider: Provider; isQuick: boolean; onSave: (p: Provider) => void; onClose: () => void; theme: string;
 }) {
   const [form, setForm] = useState({ ...provider });
+  const [fetching, setFetching] = useState(false);
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+  const [fetchMsg, setFetchMsg] = useState("");
+
+  const fetchModels = async () => {
+    if (!form.upstream || !form.api_key || form.api_key.length < 4) {
+      setFetchMsg("Enter API key first");
+      return;
+    }
+    setFetching(true);
+    setFetchMsg("Fetching...");
+    try {
+      const models = await invoke<string[]>("fetch_models", { upstream: form.upstream, apiKey: form.api_key });
+      setFetchedModels(models);
+      setFetchMsg(`Found ${models.length} models`);
+      if (models.length === 1) setForm(f => ({ ...f, model: models[0] }));
+    } catch (e: any) {
+      setFetchMsg(String(e).slice(0, 100));
+    }
+    setFetching(false);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
@@ -435,6 +456,27 @@ function ProviderEditor({ provider, isQuick, onSave, onClose, theme }: {
           )}
           <Field label={t("field.apiKey")} value={form.api_key} onChange={v => setForm(f => ({ ...f, api_key: v }))}
             type="password" placeholder="sk-..." theme={theme} autoFocus={isQuick} />
+          {/* Fetch models button */}
+          <div className="flex items-center gap-2">
+            <button onClick={fetchModels} disabled={fetching}
+              className={`px-3 py-1 text-xs rounded border transition ${
+                theme === "light" ? "border-zinc-200 hover:bg-zinc-50" : "border-zinc-600 hover:bg-zinc-700"
+              } disabled:opacity-50`}>
+              {fetching ? "⏳" : "📡"} Fetch Models
+            </button>
+            {fetchMsg && <span className={`text-xs ${fetchMsg.startsWith("Found") ? "text-emerald-500" : fetchMsg.startsWith("Enter") ? "text-zinc-500" : "text-red-400"}`}>{fetchMsg}</span>}
+          </div>
+          {/* Model selector from fetched models */}
+          {fetchedModels.length > 0 && (
+            <div className={`max-h-32 overflow-y-auto border rounded p-2 ${theme === "light" ? "border-zinc-200" : "border-zinc-700"}`}>
+              {fetchedModels.map(m => (
+                <label key={m} className={`flex items-center gap-2 py-0.5 text-xs cursor-pointer ${theme === "light" ? "hover:bg-zinc-50" : "hover:bg-zinc-800"}`}>
+                  <input type="radio" name="model" checked={form.model === m} onChange={() => setForm(f => ({ ...f, model: m }))} />
+                  <code className="text-zinc-500">{m}</code>
+                </label>
+              ))}
+            </div>
+          )}
           {!isQuick && (
             <div className="grid grid-cols-2 gap-3">
               <Field label={t("field.contextWindow")} value={String(form.context_window)}

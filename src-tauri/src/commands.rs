@@ -4,6 +4,8 @@ use crate::codex_config;
 use tauri::State;
 use uuid::Uuid;
 use std::collections::BTreeMap;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 
 #[tauri::command]
 pub fn list_providers(db: State<Database>) -> Result<Vec<Provider>, String> {
@@ -156,6 +158,35 @@ pub fn set_verified(db: State<Database>, id: String, verified: bool) -> Result<(
         rusqlite::params![verified as i64, sort_idx, id],
     ).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn fetch_models(upstream: String, api_key: String) -> Result<Vec<String>, String> {
+    let base = upstream.trim_end_matches('/');
+    let url = format!("{base}/models");
+    
+    let mut cmd = std::process::Command::new("curl");
+    cmd.arg("-s").arg("--max-time").arg("8").arg("--noproxy").arg("*")
+        .arg(&url)
+        .arg("-H").arg(format!("x-api-key: {api_key}"))
+        .arg("-H").arg("anthropic-version: 2023-06-01");
+    
+    #[cfg(windows)] { cmd.creation_flags(0x08000000); }
+    
+    let output = cmd.output().map_err(|e| format!("curl: {e}"))?;
+    let body = String::from_utf8_lossy(&output.stdout).to_string();
+    
+    let json: serde_json::Value = serde_json::from_str(&body)
+        .map_err(|_| format!("Invalid JSON: {}", &body[..body.len().min(200)]))?;
+    
+    let models: Vec<String> = json["data"].as_array()
+        .ok_or_else(|| format!("No data array: {}", &body[..body.len().min(200)]))?
+        .iter()
+        .filter_map(|m| m["id"].as_str().map(String::from))
+        .collect();
+    
+    if models.is_empty() { Err("No models found".into()) }
+    else { Ok(models) }
 }
 
 fn proxy_path() -> String {
