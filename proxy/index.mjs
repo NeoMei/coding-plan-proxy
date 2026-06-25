@@ -222,7 +222,9 @@ async function handleResponses(req, res) {
   // Non-streaming
   if (!stream) {
     const data = await upstreamRes.json();
-    const text = data.content?.filter(c => c.type === "text").map(c => c.text).join("") || "";
+    const text = isChat
+      ? (data.choices?.[0]?.message?.content || "")
+      : (data.content?.filter(c => c.type === "text").map(c => c.text).join("") || "");
     return json(res, 200, {
       id: responseId, object: "response",
       created_at: Math.floor(Date.now() / 1000),
