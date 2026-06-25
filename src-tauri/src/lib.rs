@@ -79,7 +79,7 @@ pub fn run() {
                                 let model = id.strip_prefix("model:").unwrap_or("").to_string();
                                 let _db = app_handle.state::<Database>();
                                 let proxy = app_handle.state::<SharedProxyManager>();
-                                if let Ok(providers) = db.list_providers() {
+                                if let Ok(providers) = _db.list_providers() {
                                     // Update proxy config with all verified providers
                                     let config: BTreeMap<String, serde_json::Value> = providers.iter()
                                         .filter(|p| !p.api_key.is_empty())
