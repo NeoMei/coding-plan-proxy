@@ -176,8 +176,29 @@ pub fn fetch_models(upstream: String, api_key: String) -> Result<serde_json::Val
     let output = cmd.output().map_err(|e| format!("curl: {e}"))?;
     let body = String::from_utf8_lossy(&output.stdout).to_string();
     
+    // If Anthropic endpoint returns empty, try OpenAI-compatible /v1/models with Bearer
     if body.trim().is_empty() {
-        return Err("Endpoint does not support model listing. Use preset or enter model ID manually.".into());
+        let base_origin = upstream.split("/v1").next().unwrap_or(&upstream).trim_end_matches('/');
+        let fallback_url = format!("{base_origin}/v1/models");
+        let mut cmd2 = std::process::Command::new("curl");
+        cmd2.arg("-s").arg("--max-time").arg("8").arg("--noproxy").arg("*")
+            .arg(&fallback_url)
+            .arg("-H").arg(format!("Authorization: Bearer {api_key}"));
+        #[cfg(windows)] { cmd2.creation_flags(0x08000000); }
+        let out2 = cmd2.output().map_err(|e| format!("curl: {e}"))?;
+        let body2 = String::from_utf8_lossy(&out2.stdout).to_string();
+        if body2.trim().is_empty() {
+            return Err("Endpoint does not support model listing. Use preset or enter model ID manually.".into());
+        }
+        let json2: serde_json::Value = serde_json::from_str(&body2)
+            .map_err(|_| format!("Invalid response: {}", &body2[..body2.len().min(200)]))?;
+        let data2 = json2["data"].as_array()
+            .ok_or_else(|| "No 'data' array".to_string())?;
+        let models: Vec<serde_json::Value> = data2.iter().map(|m| {
+            serde_json::json!({ "id": m["id"].as_str().unwrap_or(""), "name": m["id"].as_str().unwrap_or(""), "context_length": 0 })
+        }).collect();
+        if models.is_empty() { return Err("No models found".into()); }
+        return Ok(serde_json::json!({"models": models}));
     }
     
     let json: serde_json::Value = serde_json::from_str(&body)
