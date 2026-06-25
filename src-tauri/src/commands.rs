@@ -201,7 +201,16 @@ pub fn fetch_models(upstream: String, api_key: String) -> Result<serde_json::Val
         let data2 = json2["data"].as_array()
             .ok_or_else(|| "No 'data' array".to_string())?;
         let models: Vec<serde_json::Value> = data2.iter().map(|m| {
-            serde_json::json!({ "id": m["id"].as_str().unwrap_or(""), "name": m["id"].as_str().unwrap_or(""), "context_length": 0 })
+            let id = m["id"].as_str().unwrap_or("");
+            // Known model defaults (context_window, max_tokens)
+            let (ctx, max_tok) = match id {
+                "deepseek-v4-pro" => (1_000_000, 384_000),
+                "deepseek-v4-flash" => (1_000_000, 384_000),
+                "deepseek-chat" => (131_072, 8_192),
+                "deepseek-reasoner" => (131_072, 65_536),
+                _ => (0, 0),
+            };
+            serde_json::json!({ "id": id, "name": m["id"].as_str().unwrap_or(""), "context_length": ctx, "max_tokens": max_tok })
         }).collect();
         if models.is_empty() { return Err("No models found".into()); }
         return Ok(serde_json::json!({"models": models}));

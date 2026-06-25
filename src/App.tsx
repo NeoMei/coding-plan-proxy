@@ -425,7 +425,7 @@ function ProviderEditor({ provider, isQuick, onSave, onClose, theme }: {
       if (models.length === 1) {
         setForm(f => ({ ...f, model: models[0].id, name: models[0].name }));
         if (models[0].context_length > 0) {
-          setForm(f => ({ ...f, context_window: models[0].context_length }));
+          setForm(f => ({ ...f, context_window: models[0].context_length, max_output_tokens: (models[0] as any).max_tokens || f.max_output_tokens }));
         }
       }
     } catch (e: any) {
@@ -477,7 +477,7 @@ function ProviderEditor({ provider, isQuick, onSave, onClose, theme }: {
             <div className={`max-h-40 overflow-y-auto border rounded p-2 ${theme === "light" ? "border-zinc-200" : "border-zinc-700"}`}>
               {fetchedModels.map(m => (
                 <label key={m.id} className={`flex items-center gap-2 py-0.5 text-xs cursor-pointer ${theme === "light" ? "hover:bg-zinc-50" : "hover:bg-zinc-800"}`}>
-                  <input type="radio" name="model" checked={form.model === m.id} onChange={() => setForm(f => ({ ...f, model: m.id, name: m.name, context_window: m.context_length || f.context_window }))} />
+                  <input type="radio" name="model" checked={form.model === m.id} onChange={() => setForm(f => ({ ...f, model: m.id, name: m.name, context_window: (m as any).context_length || f.context_window, max_output_tokens: (m as any).max_tokens || f.max_output_tokens }))} />
                   <span>{m.name}</span>
                   <code className="text-zinc-500">{m.id}</code>
                   {m.context_length > 0 && <span className="text-zinc-500">{Math.round(m.context_length/1000)}k ctx</span>}
