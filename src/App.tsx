@@ -381,7 +381,7 @@ function App() {
           provider={editing}
           isQuick={false}
           onSave={saveProvider}
-          onClose={() => setEditing(null)}
+          onClose={() => { setEditing(null); setShowAdd(false); setQuickSetup(null); }}
           theme={theme}
         />
       )}
