@@ -186,13 +186,14 @@ async function handleResponses(req, res) {
   const isChat = provider.protocol === "chat";
   const endpoint = isChat ? `${provider.upstream.replace(/\/$/, "")}/chat/completions` : `${provider.upstream.replace(/\/$/, "")}/messages`;
   const method = "POST";
+  const stream = body.stream !== false;
   
   let upstreamBody;
   const headers = { "content-type": "application/json" };
   if (isChat) {
     headers["Authorization"] = `Bearer ${provider.apiKey}`;
     upstreamBody = responsesToChat(body);
-    if (body.stream !== false) upstreamBody.stream = true;
+    if (stream) upstreamBody.stream = true;
   } else {
     headers["x-api-key"] = provider.apiKey;
     headers["anthropic-version"] = "2023-06-01";
