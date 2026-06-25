@@ -45,9 +45,13 @@ pub fn run() {
             let quit_item = MenuItemBuilder::with_id("quit", "Exit").build(app)?;
             let tray_menu = MenuBuilder::new(app).item(&quit_item).build()?;
             
-            let _tray = TrayIconBuilder::new()
+            let mut tray_builder = TrayIconBuilder::new()
                 .menu(&tray_menu)
-                .tooltip("Coding Plan Proxy")
+                .tooltip("Coding Plan Proxy");
+            if let Some(icon) = app.default_window_icon().cloned() {
+                tray_builder = tray_builder.icon(icon);
+            }
+            let _tray = tray_builder
                 .on_menu_event(move |app, event| {
                     if event.id() == "quit" {
                         app.exit(0);
