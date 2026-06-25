@@ -503,23 +503,23 @@ function ProviderEditor({ provider, isQuick, onSave, onClose, theme }: {
           </button>
           <button onClick={async () => {
             if (fetchedModels.length > 1) {
-              // Batch save all fetched models with unique IDs
               const all = [];
               for (const m of fetchedModels) {
-                const id = await invoke("generate_id");
                 all.push({
                   ...form,
-                  id, model: m.id,
+                  id: await invoke("generate_id"),
+                  model: m.id,
                   context_window: (m as any).context_length || form.context_window,
                   max_output_tokens: (m as any).max_tokens || form.max_output_tokens,
                   verified: false,
                 });
               }
               await invoke("save_providers", { providers: all });
+              // Force refresh of the main provider list
+              await onSave(form);
             } else {
               await onSave(form);
             }
-            onClose();
           }}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
             {t("modal.save")}
