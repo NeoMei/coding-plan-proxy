@@ -18,6 +18,12 @@ pub fn save_provider(db: State<Database>, provider: Provider) -> Result<(), Stri
 }
 
 #[tauri::command]
+pub fn save_providers(db: State<Database>, providers: Vec<Provider>) -> Result<(), String> {
+    for p in &providers { db.upsert_provider(p)?; }
+    Ok(())
+}
+
+#[tauri::command]
 pub fn delete_provider(db: State<Database>, id: String) -> Result<(), String> {
     db.delete_provider(&id)
 }

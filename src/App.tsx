@@ -501,7 +501,22 @@ function ProviderEditor({ provider, isQuick, onSave, onClose, theme }: {
             className={`px-4 py-2 text-sm rounded transition ${theme === "light" ? "text-zinc-500 hover:text-zinc-700" : "text-zinc-400 hover:text-white"}`}>
             {t("modal.cancel")}
           </button>
-          <button onClick={() => onSave(form)}
+          <button onClick={async () => {
+            if (fetchedModels.length > 1) {
+              // Batch save all fetched models
+              const all = fetchedModels.map(m => ({
+                ...form,
+                id: "", model: m.id,
+                context_window: (m as any).context_length || form.context_window,
+                max_output_tokens: (m as any).max_tokens || form.max_output_tokens,
+                verified: false,
+              }));
+              await invoke("save_providers", { providers: all });
+            } else {
+              await onSave(form);
+            }
+            onClose();
+          }}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
             {t("modal.save")}
           </button>
