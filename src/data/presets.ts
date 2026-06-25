@@ -45,20 +45,12 @@ export const BUILTIN_PRESETS: Preset[] = [
   },
   // ── DeepSeek ──
   {
-    id: "preset-deepseek-cp",
-    name: "DeepSeek Coding Plan",
+    id: "preset-deepseek",
+    name: "DeepSeek",
     model: "deepseek-v4-pro",
     upstream: "https://api.deepseek.com/anthropic/v1",
     contextWindow: 1000000, maxOutputTokens: 384000,
-    label: "DeepSeek Coding Plan",
-  },
-  {
-    id: "preset-deepseek-api",
-    name: "DeepSeek API",
-    model: "deepseek-chat",
-    upstream: "https://api.deepseek.com/v1",
-    contextWindow: 131072, maxOutputTokens: 8192,
-    label: "DeepSeek API",
+    label: "DeepSeek",
   },
   // ── 火山方舟 (豆包) ──
   {

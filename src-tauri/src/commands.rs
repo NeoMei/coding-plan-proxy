@@ -244,14 +244,14 @@ pub fn fetch_models(upstream: String, api_key: String) -> Result<serde_json::Val
 }
 
 #[tauri::command]
-pub fn rebuild_tray_menu(app: tauri::AppHandle, db: State<Database>, tray: State<crate::TrayState>) -> Result<(), String> {
+pub fn rebuild_tray_menu(app: tauri::AppHandle, db: State<Database>, tray: State<crate::TrayState>, proxy: State<SharedProxyManager>) -> Result<(), String> {
     let providers = db.list_providers()?;
     let verified: Vec<(&str, &str)> = providers.iter()
         .filter(|p| p.verified && !p.api_key.is_empty())
         .map(|p| (p.model.as_str(), p.name.as_str()))
         .collect();
     
-    let menu = crate::build_tray_menu(&app, &verified).map_err(|e| e.to_string())?;
+    let menu = crate::build_tray_menu(&app, &verified, proxy.is_running()).map_err(|e| e.to_string())?;
     if let Ok(mut guard) = tray.0.lock() {
         if let Some(ref tray_icon) = *guard {
             tray_icon.set_menu(Some(menu)).map_err(|e| e.to_string())?;

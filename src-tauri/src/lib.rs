@@ -36,14 +36,14 @@ pub fn run() {
                 .unwrap_or(false);
             if auto_start {
                 let proxy_state = app.state::<SharedProxyManager>();
-                if let Ok(proxy_path) = find_proxy_path(app) {
+                if let Ok(proxy_path) = find_proxy_path(app.handle()) {
                     let _ = proxy_state.start(&proxy_path);
                 }
             }
 
             // Build initial tray menu
             use tauri::tray::{TrayIconBuilder, MouseButton, MouseButtonState, TrayIconEvent};
-            let menu = build_tray_menu(app.handle(), &[])?;
+            let menu = build_tray_menu(app.handle(), &[], false)?;
             
             let mut tray_builder = TrayIconBuilder::new()
                 .menu(&menu)
@@ -56,17 +56,35 @@ pub fn run() {
                     let app_handle = app.handle().clone();
                     move |_app, event| {
                         let id = event.id().0.clone();
-                        if id == "quit" {
-                            _app.exit(0);
-                        } else if id.starts_with("model:") {
-                            let model = id.strip_prefix("model:").unwrap_or("").to_string();
-                            let db = app_handle.state::<Database>();
-                            let proxy = app_handle.state::<SharedProxyManager>();
-                            if let Ok(providers) = db.list_providers() {
-                                let _ = codex_config::write_codex_config(&model, proxy.port(), 262144, &providers);
-                                let _ = codex_config::write_model_catalog(&providers);
-                                let _ = codex_config::write_codex_auth();
+                        match id.as_str() {
+                            "quit" => _app.exit(0),
+                            "toggle_window" => {
+                                if let Some(window) = _app.get_webview_window("main") {
+                                    if window.is_visible().unwrap_or(false) { let _ = window.hide(); }
+                                    else { let _ = window.show(); let _ = window.set_focus(); }
+                                }
                             }
+                            "toggle_proxy" => {
+                                let proxy = app_handle.state::<SharedProxyManager>();
+                                if proxy.is_running() { let _ = proxy.stop(); }
+                                else {
+                                    let db = app_handle.state::<Database>();
+                                    if let Ok(proxy_path) = find_proxy_path(&app_handle) {
+                                        let _ = proxy.start(&proxy_path);
+                                    }
+                                }
+                            }
+                            id if id.starts_with("model:") => {
+                                let model = id.strip_prefix("model:").unwrap_or("").to_string();
+                                let db = app_handle.state::<Database>();
+                                let proxy = app_handle.state::<SharedProxyManager>();
+                                if let Ok(providers) = db.list_providers() {
+                                    let _ = codex_config::write_codex_config(&model, proxy.port(), 262144, &providers);
+                                    let _ = codex_config::write_model_catalog(&providers);
+                                    let _ = codex_config::write_codex_auth();
+                                }
+                            }
+                            _ => {}
                         }
                     }
                 })
@@ -125,28 +143,32 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-fn build_tray_menu(app: &tauri::AppHandle, models: &[(&str, &str)]) -> Result<tauri::menu::Menu<tauri::Wry>, tauri::Error> {
+fn build_tray_menu(app: &tauri::AppHandle, models: &[(&str, &str)], proxy_running: bool) -> Result<tauri::menu::Menu<tauri::Wry>, tauri::Error> {
     use tauri::menu::{MenuBuilder, MenuItemBuilder};
     
     let mut builder = MenuBuilder::new(app);
+    
+    // Show/Hide
+    builder = builder.item(&MenuItemBuilder::with_id("toggle_window", "Show/Hide").build(app)?);
+    builder = builder.separator();
+    
+    // Model list
     for (model, name) in models {
-        let id = format!("model:{model}");
-        let item = MenuItemBuilder::with_id(&id, *name).build(app)?;
-        builder = builder.item(&item);
+        let label = format!("  ● {name}");
+        builder = builder.item(&MenuItemBuilder::with_id(&format!("model:{model}"), &label).build(app)?);
     }
-    if !models.is_empty() {
-        builder = builder.separator();
-    }
+    builder = builder.separator();
+    
+    // Start/Stop proxy
+    let proxy_label = if proxy_running { "Stop Proxy" } else { "Start Proxy" };
+    builder = builder.item(&MenuItemBuilder::with_id("toggle_proxy", proxy_label).build(app)?);
+    builder = builder.separator();
+    
     builder = builder.item(&MenuItemBuilder::with_id("quit", "Exit").build(app)?);
     builder.build()
 }
 
-fn find_proxy_path(app: &tauri::App) -> Result<String, String> {
-    let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
-    let bundled = resource_dir.join("proxy").join("index.mjs");
-    if bundled.exists() {
-        return Ok(bundled.to_string_lossy().to_string());
-    }
+fn find_proxy_path(_app: &tauri::AppHandle) -> Result<String, String> {
     if let Ok(exe) = std::env::current_exe() {
         for ancestor in exe.ancestors().take(4) {
             let candidate = ancestor.join("proxy").join("index.mjs");
