@@ -17,13 +17,13 @@ pub fn write_codex_config(model: &str, proxy_port: u16, context_window: u64) -> 
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
     let catalog_abs = catalog_file();
-    let catalog_path = catalog_abs.to_string_lossy().replace('\\', "\\\\");
+    let catalog_path = catalog_abs.to_string_lossy().to_string();
 
     let config = format!(
         r#"model = "{model}"
 model_provider = "custom"
 model_context_window = {ctx}
-model_catalog_json = "{catalog}"
+model_catalog_json = '{catalog}'
 
 [model_providers.custom]
 name = "Coding Plan"
