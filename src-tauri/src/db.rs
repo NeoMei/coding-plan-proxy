@@ -74,6 +74,9 @@ impl Database {
             "
         ).map_err(|e| e.to_string())?;
 
+        // Add verified column for databases created before v1.2
+        conn.execute("ALTER TABLE providers ADD COLUMN verified INTEGER NOT NULL DEFAULT 0", []).ok();
+
         // Seed built-in presets if table is empty
         let count: i64 = conn.query_row(
             "SELECT COUNT(*) FROM providers", [], |row| row.get(0)
