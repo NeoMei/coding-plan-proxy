@@ -41,10 +41,14 @@ pub fn start_proxy(proxy: State<SharedProxyManager>, db: State<Database>) -> Res
         .collect();
 
     let config: BTreeMap<String, serde_json::Value> = enabled_providers.iter()
-        .map(|p| (p.model.clone(), serde_json::json!({
-            "upstream": p.upstream,
-            "apiKey": p.api_key
-        })))
+        .map(|p| {
+            let is_chat = p.upstream.contains("/v1") && !p.upstream.contains("/anthropic");
+            (p.model.clone(), serde_json::json!({
+                "upstream": p.upstream,
+                "apiKey": p.api_key,
+                "protocol": if is_chat { "chat" } else { "anthropic" }
+            }))
+        })
         .collect();
 
     let config_path = dirs::home_dir()
@@ -98,7 +102,10 @@ pub fn apply_to_codex(db: State<Database>, proxy: State<SharedProxyManager>, mod
     
     // Write proxy config with ALL verified providers (so proxy supports them all)
     let config: BTreeMap<String, serde_json::Value> = verified.iter()
-        .map(|p| (p.model.clone(), serde_json::json!({"upstream": p.upstream, "apiKey": p.api_key})))
+        .map(|p| {
+            let is_chat = p.upstream.contains("/v1") && !p.upstream.contains("/anthropic");
+            (p.model.clone(), serde_json::json!({"upstream": p.upstream, "apiKey": p.api_key, "protocol": if is_chat { "chat" } else { "anthropic" }}))
+        })
         .collect();
     let config_path = dirs::home_dir().unwrap_or_default().join(".coding-plan-proxy.json");
     std::fs::write(&config_path, serde_json::to_string_pretty(&config).unwrap_or_default())

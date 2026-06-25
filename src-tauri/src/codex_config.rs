@@ -131,19 +131,25 @@ pub fn write_model_catalog(providers: &[Provider]) -> Result<(), String> {
 /// Test connectivity to a provider's upstream
 pub async fn test_provider_connection(provider: &Provider) -> Result<String, String> {
     let url = provider.upstream.trim_end_matches('/').to_string();
-    let body = json!({
-        "model": provider.model,
-        "max_tokens": 5,
-        "messages": [{"role": "user", "content": "hi"}]
-    });
+    let is_chat = url.contains("/v1") && !url.contains("/anthropic");
+    
+    let body = if is_chat {
+        serde_json::json!({"model": provider.model, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 5})
+    } else {
+        serde_json::json!({"model": provider.model, "max_tokens": 5, "messages": [{"role": "user", "content": "hi"}]})
+    };
+
+    let endpoint = if is_chat { format!("{url}/chat/completions") } else { format!("{url}/messages") };
+    let auth_header = if is_chat { format!("Authorization: Bearer {}", provider.api_key) } else { format!("x-api-key: {}", provider.api_key) };
 
     let mut cmd = std::process::Command::new("curl");
     cmd.arg("-s").arg("--max-time").arg("10").arg("--noproxy").arg("*")
-        .arg(format!("{}/messages", url))
-        .arg("-H").arg(format!("x-api-key: {}", provider.api_key))
-        .arg("-H").arg("anthropic-version: 2023-06-01")
+        .arg(&endpoint)
+        .arg("-H").arg(&auth_header)
         .arg("-H").arg("content-type: application/json")
         .arg("-d").arg(serde_json::to_string(&body).unwrap_or_default());
+
+    if !is_chat { cmd.arg("-H").arg("anthropic-version: 2023-06-01"); }
 
     // Hide console window on Windows
     #[cfg(windows)]
@@ -156,11 +162,9 @@ pub async fn test_provider_connection(provider: &Provider) -> Result<String, Str
 
     if output.status.success() {
         let body_str = String::from_utf8_lossy(&output.stdout);
-        if body_str.contains("\"type\":\"message\"") || body_str.contains("\"content\"") {
-            Ok("ok".to_string())
-        } else {
-            Err(format!("Unexpected: {}", body_str.chars().take(200).collect::<String>()))
-        }
+        let ok = body_str.contains("\"type\":\"message\"") || body_str.contains("\"content\"") || body_str.contains("\"choices\"");
+        if ok { Ok("ok".to_string()) }
+        else { Err(format!("Unexpected: {}", body_str.chars().take(200).collect::<String>())) }
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);

@@ -70,6 +70,26 @@ async function readBody(req) {
   return Buffer.concat(chunks).toString("utf8");
 }
 
+// ── Responses → Chat Completions ─────────────────────────────
+function responsesToChat(body) {
+  const messages = [];
+  if (body.instructions) messages.push({ role: "system", content: String(body.instructions) });
+  const input = body.input;
+  if (typeof input === "string") { messages.push({ role: "user", content: input }); return { model: body.model, messages, max_completion_tokens: body.max_output_tokens || 8192 }; }
+  if (Array.isArray(input)) {
+    for (const item of input) {
+      if (item.type === "function_call_output") { messages.push({ role: "tool", tool_call_id: item.call_id, content: String(item.output ?? "") }); continue; }
+      if (item.type === "function_call") { let args = {}; try { args = JSON.parse(item.arguments || "{}"); } catch(e) {} messages.push({ role: "assistant", tool_calls: [{ id: item.call_id, type: "function", function: { name: item.name, arguments: JSON.stringify(args) } }] }); continue; }
+      let role = item.role || "user"; if (role === "developer") role = "system";
+      let content = item.content ?? item.text ?? "";
+      if (Array.isArray(content)) content = content.filter(c => c.type === "input_text" || c.type === "output_text").map(c => c.text || "").join("\n");
+      if (content) messages.push({ role, content: String(content) });
+    }
+  }
+  if (!messages.length) messages.push({ role: "user", content: "ping" });
+  return { model: body.model, messages, max_completion_tokens: body.max_output_tokens || 8192 };
+}
+
 // ── Responses → Anthropic Messages ──────────────────────────────
 function responsesToAnthropic(body) {
   const messages = [];
@@ -163,31 +183,30 @@ async function handleResponses(req, res) {
   if (!provider.apiKey) return json(res, 401, { error: { message: `No API key for ${model}` } });
 
   const responseId = `resp_${Date.now().toString(36)}`;
-  const stream = body.stream !== false;
-  const { messages, system } = responsesToAnthropic(body);
+  const isChat = provider.protocol === "chat";
+  const endpoint = isChat ? `${provider.upstream.replace(/\/$/, "")}/chat/completions` : `${provider.upstream.replace(/\/$/, "")}/messages`;
+  const method = "POST";
+  
+  let upstreamBody;
+  const headers = { "content-type": "application/json" };
+  if (isChat) {
+    headers["Authorization"] = `Bearer ${provider.apiKey}`;
+    upstreamBody = responsesToChat(body);
+    if (body.stream !== false) upstreamBody.stream = true;
+  } else {
+    headers["x-api-key"] = provider.apiKey;
+    headers["anthropic-version"] = "2023-06-01";
+    const { messages, system } = responsesToAnthropic(body);
+    upstreamBody = { model, max_tokens: body.max_output_tokens || 8192, messages, stream };
+    if (system) upstreamBody.system = system;
+    if (body.temperature != null) upstreamBody.temperature = body.temperature;
+  }
 
-  const anthropicBody = {
-    model,
-    max_tokens: body.max_output_tokens || 8192,
-    messages,
-    stream,
-  };
-  if (system) anthropicBody.system = system;
-  if (body.temperature != null) anthropicBody.temperature = body.temperature;
-
-  log("info", `→ ${model}  ${provider.upstream}/messages`);
+  log("info", `→ ${model}  ${endpoint}`);
 
   let upstreamRes;
   try {
-    upstreamRes = await fetch(`${provider.upstream.replace(/\/$/, "")}/messages`, {
-      method: "POST",
-      headers: {
-        "x-api-key": provider.apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(anthropicBody),
-    });
+    upstreamRes = await fetch(endpoint, { method, headers, body: JSON.stringify(upstreamBody) });
   } catch (e) {
     log("error", `Upstream error: ${e.message}`);
     return json(res, 502, { error: { message: `Upstream unreachable: ${e.message}` } });
@@ -220,7 +239,7 @@ async function handleResponses(req, res) {
     });
   }
 
-  // Streaming: Anthropic SSE → Responses SSE
+  // Streaming: SSE → Responses SSE
   res.writeHead(200, {
     "content-type": "text/event-stream; charset=utf-8",
     "cache-control": "no-cache",
@@ -250,34 +269,42 @@ async function handleResponses(req, res) {
         if (!line.startsWith("data:")) continue;
         const payload = line.slice(5).trim();
         if (!payload || payload === "[DONE]") continue;
-        let event;
-        try { event = JSON.parse(payload); } catch (e) { continue; }
 
-        switch (event.type) {
-          case "message_start":
-            sse(res, {
-              type: "response.output_item.added", output_index: outputIndex,
-              item: { id: outputId, type: "message", role: "assistant", content: [] }
-            });
-            break;
-          case "content_block_start":
-            if (event.content_block?.type === "text" && !textStarted) {
-              textStarted = true;
-              sse(res, {
-                type: "response.content_part.added", item_id: outputId, output_index: outputIndex,
-                content_index: 0, part: { type: "output_text", text: "" }
-              });
-            }
-            break;
-          case "content_block_delta":
-            if (event.delta?.type === "text_delta" && event.delta.text) {
-              fullText += event.delta.text;
-              sse(res, {
-                type: "response.output_text.delta", item_id: outputId, output_index: outputIndex,
-                content_index: 0, delta: event.delta.text
-              });
-            }
-            break;
+        if (isChat) {
+          // Chat Completions SSE → Responses SSE
+          let event;
+          try { event = JSON.parse(payload); } catch(e) { continue; }
+          const delta = event.choices?.[0]?.delta;
+          const content = delta?.content || "";
+          if (!content) continue;
+          if (!textStarted) {
+            textStarted = true;
+            sse(res, { type: "response.output_item.added", output_index: outputIndex, item: { id: outputId, type: "message", role: "assistant", content: [] } });
+            sse(res, { type: "response.content_part.added", item_id: outputId, output_index: outputIndex, content_index: 0, part: { type: "output_text", text: "" } });
+          }
+          fullText += content;
+          sse(res, { type: "response.output_text.delta", item_id: outputId, output_index: outputIndex, content_index: 0, delta: content });
+        } else {
+          // Anthropic SSE → Responses SSE (existing)
+          let event;
+          try { event = JSON.parse(payload); } catch(e) { continue; }
+          switch (event.type) {
+            case "message_start":
+              sse(res, { type: "response.output_item.added", output_index: outputIndex, item: { id: outputId, type: "message", role: "assistant", content: [] } });
+              break;
+            case "content_block_start":
+              if (event.content_block?.type === "text" && !textStarted) {
+                textStarted = true;
+                sse(res, { type: "response.content_part.added", item_id: outputId, output_index: outputIndex, content_index: 0, part: { type: "output_text", text: "" } });
+              }
+              break;
+            case "content_block_delta":
+              if (event.delta?.type === "text_delta" && event.delta.text) {
+                fullText += event.delta.text;
+                sse(res, { type: "response.output_text.delta", item_id: outputId, output_index: outputIndex, content_index: 0, delta: event.delta.text });
+              }
+              break;
+          }
         }
       }
     }

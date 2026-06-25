@@ -22,7 +22,7 @@ export const BUILTIN_PRESETS: Preset[] = [
     id: "preset-kimi-api",
     name: "Kimi API",
     model: "kimi-k2.7-code",
-    upstream: "https://api.moonshot.cn/anthropic/v1",
+    upstream: "https://api.moonshot.cn/v1",
     contextWindow: 262144, maxOutputTokens: 32768,
     label: "Kimi API (月之暗面)",
   },

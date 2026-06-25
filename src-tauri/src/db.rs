@@ -84,7 +84,7 @@ impl Database {
         if count == 0 {
             let presets = vec![
                 ("preset-kimi-cp", "Kimi Coding Plan", "kimi-for-coding", "https://api.kimi.com/coding/v1", 262144, 32768),
-                ("preset-kimi-api", "Kimi API", "kimi-k2.7-code", "https://api.moonshot.cn/anthropic/v1", 262144, 32768),
+                ("preset-kimi-api", "Kimi API", "kimi-k2.7-code", "https://api.moonshot.cn/v1", 262144, 32768),
                 ("preset-glm-cp", "GLM Coding Plan", "glm-5.2", "https://open.bigmodel.cn/api/anthropic/v1", 200000, 32768),
                 ("preset-glm-api", "GLM API", "glm-4.7", "https://open.bigmodel.cn/api/paas/v4", 128000, 4096),
                 ("preset-deepseek-cp", "DeepSeek Coding Plan", "deepseek-v4-pro", "https://api.deepseek.com/anthropic/v1", 1000000, 384000),
