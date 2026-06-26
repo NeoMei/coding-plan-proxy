@@ -4,7 +4,7 @@ version = "1.0.0"
 description = "Desktop manager for Coding Plan API providers — seamless Codex integration"
 authors = ["NeoMei"]
 license = "MIT"
-repository = "https://github.com/NeoMei/coding-plan-proxy"
+repository = "https://github.com/NeoMei/CodexProxy"
 edition = "2021"
 rust-version = "1.77.2"
 

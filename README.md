@@ -20,15 +20,15 @@
 
 ## 安装
 
-下载最新 [Release](https://github.com/NeoMei/coding-plan-proxy/releases)：
+下载最新 [Release](https://github.com/NeoMei/CodexProxy/releases)：
 
-- **Windows**: `Coding-Plan-Proxy_1.0.0_x64_en-US.msi`
-- **macOS**: `Coding-Plan-Proxy_1.0.0_aarch64.dmg`（需执行 `xattr -cr /Applications/Coding\ Plan\ Proxy.app` 解除隔离）
-- **Linux**: `coding-plan-proxy_1.0.0_amd64.deb` 或 `.AppImage`
+- **Windows**: `CodexProxy_1.0.0_x64_zh-CN.msi`
+- **macOS**: `CodexProxy_1.0.0_aarch64.dmg`（需执行 `xattr -cr /Applications/CodexProxy.app` 解除隔离）
+- **Linux**: `CodexProxy_1.0.0_amd64.deb`
 
 ## 使用
 
-1. 打开 Coding Plan Proxy
+1. 打开 CodexProxy
 2. 点击 "+ Add Provider"，填入供应商信息
    - Kimi: upstream `https://api.kimi.com/coding/v1`，model `kimi-for-coding`
    - GLM: upstream `https://open.bigmodel.cn/api/anthropic/v1`，model `glm-5.2`

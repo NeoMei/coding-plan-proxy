@@ -1,11 +1,11 @@
 {
-  "name": "coding-plan-proxy",
+  "name": "codexproxy",
   "version": "1.0.0",
   "description": "Multi-provider Responses → Anthropic Messages proxy for OpenAI Codex. Supports Kimi, GLM, DeepSeek and more Coding Plan APIs.",
   "type": "module",
   "main": "index.mjs",
   "bin": {
-    "coding-plan-proxy": "./index.mjs"
+    "codexproxy": "./index.mjs"
   },
   "files": [
     "index.mjs",
@@ -32,6 +32,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/NeoMei/coding-plan-proxy"
+    "url": "https://github.com/NeoMei/CodexProxy"
   }
 }

@@ -47,7 +47,7 @@ function loadProviders() {
   if (Object.keys(envProviders).length > 0) return envProviders;
 
   // 4. Fallback: empty — proxy will return errors per-request until configured
-  console.error("[coding-plan-proxy] No providers configured. Use the desktop app or set CODING_PLAN_PROVIDERS env var.");
+  console.error("[CodexProxy] No providers configured. Use the desktop app or set CODING_PLAN_PROVIDERS env var.");
   return {};
 }
 
@@ -482,7 +482,7 @@ const server = http.createServer((req, res) => {
       service: "codexproxy",
       version: "1.0.0",
       providers: Object.keys(PROVIDERS),
-      docs: "https://github.com/NeoMei/coding-plan-proxy"
+      docs: "https://github.com/NeoMei/CodexProxy"
     });
   }
   if (req.method === "POST" && (req.url === "/responses" || req.url === "/v1/responses")) {
