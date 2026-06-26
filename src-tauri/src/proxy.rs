@@ -41,36 +41,36 @@ impl ProxyManager {
 
     pub fn port(&self) -> u16 { self.port }
 
-    pub fn start(&self, proxy_path: &str) -> Result<(), String> {
-        // Verify node is available before trying to spawn the proxy.
-        if Command::new("node").arg("--version").output().is_err() {
-            return Err("Node.js is required but not found in PATH. Please install Node.js 18+ to run the proxy.".into());
-        }
+pub fn start(&self, proxy_path: &str) -> Result<(), String> {
+    // Verify node is available before trying to spawn the proxy.
+    let node = find_node_binary().ok_or_else(|| {
+        "Node.js is required but not found in PATH. Please install Node.js 18+ (package 'nodejs' or binary 'node').".to_string()
+    })?;
 
-        let owns_child = self.child.lock().map(|g| g.is_some()).unwrap_or(false);
-        if !owns_child && self.is_port_listening() {
-            kill_port_occupants(self.port);
-            for _ in 0..6 {
-                if !self.is_port_listening() { break; }
-                std::thread::sleep(Duration::from_millis(500));
-            }
+    let owns_child = self.child.lock().map(|g| g.is_some()).unwrap_or(false);
+    if !owns_child && self.is_port_listening() {
+        kill_port_occupants(self.port);
+        for _ in 0..6 {
+            if !self.is_port_listening() { break; }
+            std::thread::sleep(Duration::from_millis(500));
         }
-        if self.is_port_listening() {
-            log::info!("Proxy port {} already in use", self.port);
-            return Ok(());
-        }
-        if self.is_running() { return Ok(()); }
-
-        log::info!("Starting proxy: node {}", proxy_path);
-        let mut cmd = Command::new("node");
-        cmd.arg(proxy_path).env("PROXY_PORT", self.port.to_string());
-        #[cfg(windows)] { cmd.creation_flags(0x08000000); }
-
-        let child = cmd.spawn().map_err(|e| format!("Failed to start proxy: {}", e))?;
-        std::thread::sleep(Duration::from_millis(500));
-        if let Ok(mut guard) = self.child.lock() { *guard = Some(child); }
-        Ok(())
     }
+    if self.is_port_listening() {
+        log::info!("Proxy port {} already in use", self.port);
+        return Ok(());
+    }
+    if self.is_running() { return Ok(()); }
+
+    log::info!("Starting proxy: {} {}", node, proxy_path);
+    let mut cmd = Command::new(&node);
+    cmd.arg(proxy_path).env("PROXY_PORT", self.port.to_string());
+    #[cfg(windows)] { cmd.creation_flags(0x08000000); }
+
+    let child = cmd.spawn().map_err(|e| format!("Failed to start proxy: {}", e))?;
+    std::thread::sleep(Duration::from_millis(500));
+    if let Ok(mut guard) = self.child.lock() { *guard = Some(child); }
+    Ok(())
+}
 
     pub fn stop(&self) -> Result<(), String> {
         // Kill our child
@@ -123,11 +123,23 @@ fn kill_port_occupants(port: u16) {
     let text = String::from_utf8_lossy(&output.stdout);
     for pid_str in text.split_whitespace() {
         let Ok(pid) = pid_str.parse::<u32>() else { continue };
-        let cmdline_path = std::path::PathBuf::from(format!("/proc/{pid}/cmdline"));
-        let Ok(cmdline) = std::fs::read_to_string(&cmdline_path) else { continue };
+        let Ok(ps_output) = std::process::Command::new("ps")
+            .args(["-p", pid_str, "-o", "command="])
+            .output()
+        else { continue };
+        let cmdline = String::from_utf8_lossy(&ps_output.stdout);
         if !cmdline.contains("proxy/index.mjs") { continue; }
         let _ = std::process::Command::new("kill").args(["-9", pid_str]).output();
     }
 }
 
 pub type SharedProxyManager = Arc<ProxyManager>;
+
+fn find_node_binary() -> Option<String> {
+    for bin in ["node", "nodejs"] {
+        if Command::new(bin).arg("--version").output().is_ok() {
+            return Some(bin.to_string());
+        }
+    }
+    None
+}

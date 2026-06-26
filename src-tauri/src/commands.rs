@@ -331,6 +331,7 @@ pub fn proxy_path(app: &tauri::AppHandle) -> Result<String, String> {
             let candidates = [
                 parent.join("resources").join("proxy").join("index.mjs"),
                 parent.join("proxy").join("index.mjs"),
+                parent.parent().map(|p| p.join("Resources").join("proxy").join("index.mjs")).unwrap_or_default(), // macOS bundle
                 parent.parent().map(|p| p.join("resources").join("proxy").join("index.mjs")).unwrap_or_default(),
                 parent.parent().map(|p| p.join("proxy").join("index.mjs")).unwrap_or_default(),
                 parent.parent().and_then(|p| p.parent()).map(|p| p.join("resources").join("proxy").join("index.mjs")).unwrap_or_default(),
@@ -341,6 +342,19 @@ pub fn proxy_path(app: &tauri::AppHandle) -> Result<String, String> {
                 if c.exists() { return Ok(clean_path(c)); }
             }
         }
+    }
+
+    // Linux package install layouts (deb/rpm)
+    let linux_candidates = [
+        std::path::PathBuf::from("/usr/lib/CodexProxy/proxy/index.mjs"),
+        std::path::PathBuf::from("/usr/lib/codex-proxy/proxy/index.mjs"),
+        std::path::PathBuf::from("/usr/lib/codexproxy/proxy/index.mjs"),
+        std::path::PathBuf::from("/opt/CodexProxy/proxy/index.mjs"),
+        std::path::PathBuf::from("/opt/codexproxy/proxy/index.mjs"),
+    ];
+    for c in &linux_candidates {
+        log::info!("proxy_path linux candidate: {}", c.display());
+        if c.exists() { return Ok(clean_path(c)); }
     }
 
     // Dev: common locations relative to CWD
