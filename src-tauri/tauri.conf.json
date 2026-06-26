@@ -37,9 +37,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "../proxy/index.mjs"
-    ],
+    "resources": {
+      "../proxy/index.mjs": "proxy/index.mjs"
+    },
     "windows": {
       "wix": {
         "language": "zh-CN"
