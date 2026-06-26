@@ -298,6 +298,13 @@ pub fn rebuild_tray_menu(app: tauri::AppHandle, db: State<Database>, tray: State
 }
 
 pub fn proxy_path(app: &tauri::AppHandle) -> Result<String, String> {
+    // Strip Windows verbatim path prefix (\\?\) before returning, otherwise Node.js
+    // fails to resolve the script entry point with EISDIR.
+    fn clean_path(p: &std::path::Path) -> String {
+        let s = p.to_string_lossy().to_string();
+        if s.starts_with(r"\\?\") { s[4..].to_string() } else { s }
+    }
+
     #[cfg(debug_assertions)]
     if let Ok(exe) = std::env::current_exe() {
         for ancestor in exe.ancestors().skip(1) {
@@ -305,7 +312,7 @@ pub fn proxy_path(app: &tauri::AppHandle) -> Result<String, String> {
             let candidate = ancestor.join("proxy").join("index.mjs");
             log::info!("proxy_path dev candidate: {}", candidate.display());
             if candidate.exists() {
-                return Ok(candidate.to_string_lossy().to_string());
+                return Ok(clean_path(&candidate));
             }
         }
     }
@@ -314,7 +321,7 @@ pub fn proxy_path(app: &tauri::AppHandle) -> Result<String, String> {
     if let Ok(resource_path) = app.path().resolve("proxy/index.mjs", tauri::path::BaseDirectory::Resource) {
         log::info!("proxy_path resource candidate: {}", resource_path.display());
         if resource_path.exists() {
-            return Ok(resource_path.to_string_lossy().to_string());
+            return Ok(clean_path(&resource_path));
         }
     }
 
@@ -331,7 +338,7 @@ pub fn proxy_path(app: &tauri::AppHandle) -> Result<String, String> {
             ];
             for c in &candidates {
                 log::info!("proxy_path fallback candidate: {}", c.display());
-                if c.exists() { return Ok(c.to_string_lossy().to_string()); }
+                if c.exists() { return Ok(clean_path(c)); }
             }
         }
     }
@@ -345,7 +352,7 @@ pub fn proxy_path(app: &tauri::AppHandle) -> Result<String, String> {
     ];
     for c in &dev_candidates {
         log::info!("proxy_path cwd candidate: {}", c.display());
-        if c.exists() { return Ok(c.to_string_lossy().to_string()); }
+        if c.exists() { return Ok(clean_path(c)); }
     }
 
     log::error!("proxy/index.mjs not found in any candidate location");
