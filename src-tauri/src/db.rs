@@ -83,7 +83,7 @@ impl Database {
                 ("preset-deepseek", "DeepSeek", "deepseek-v4-pro", "https://api.deepseek.com/anthropic/v1", 1000000, 384000),
                 ("preset-volc-cp", "Volcengine AgentPlan", "doubao-seed-2.0", "https://ark.cn-beijing.volces.com/api/anthropic/v1", 200000, 32768),
                 ("preset-volc-api", "Volcengine API", "doubao-1.5-pro-256k", "https://ark.cn-beijing.volces.com/api/v3", 256000, 16384),
-                ("preset-bailian-cp", "Bailian Coding Plan", "qwen-plus", "https://dashscope.aliyuncs.com/compatible-mode/anthropic/v1", 200000, 32768),
+                ("preset-bailian-cp", "Bailian Coding Plan", "qwen-plus", "https://coding.dashscope.aliyuncs.com/v1", 200000, 32768),
                 ("preset-bailian-api", "Bailian API", "qwen-max", "https://dashscope.aliyuncs.com/compatible-mode/v1", 32768, 8192),
                 ("preset-openai", "OpenAI GPT-5.5", "gpt-5.5", "https://api.openai.com/v1", 272000, 128000),
                 ("preset-anthropic", "Claude Opus 4", "claude-opus-4-20250514", "https://api.anthropic.com/v1", 200000, 32768),

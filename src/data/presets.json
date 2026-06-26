@@ -48,7 +48,7 @@
     "id": "preset-bailian-cp",
     "name": "Bailian Coding Plan",
     "model": "qwen-plus",
-    "upstream": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+    "upstream": "https://coding.dashscope.aliyuncs.com/v1",
     "contextWindow": 200000,
     "maxOutputTokens": 32768,
     "label": "百炼 Coding Plan (通义)"
