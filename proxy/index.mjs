@@ -116,7 +116,7 @@ function responsesToChat(body) {
 }
 
 // ── Responses → Anthropic Messages ──────────────────────────────
-function responsesToAnthropic(body) {
+function responsesToAnthropic(body, nameMap) {
   const messages = [];
   let system = null;
   if (body.instructions) system = String(body.instructions);
@@ -132,7 +132,7 @@ function responsesToAnthropic(body) {
         const toolUses = [];
         while (i < input.length && input[i].type === "function_call") {
           const fc = input[i];
-          toolUses.push({ type: "tool_use", id: fc.call_id, name: fc.name, input: parseToolArgs(fc.arguments) });
+          toolUses.push({ type: "tool_use", id: fc.call_id, name: nameMap?.get(fc.name) || fc.name, input: parseToolArgs(fc.arguments) });
           i++;
         }
         messages.push({ role: "assistant", content: toolUses });
@@ -198,13 +198,13 @@ function sse(res, event) {
 }
 
 // ── Tool conversion helpers ──────────────────────────────────────
-function openaiToolsToAnthropic(tools) {
+function openaiToolsToAnthropic(tools, nameMap) {
   if (!Array.isArray(tools)) return undefined;
   const converted = [];
   for (const t of tools) {
     if (t.type === "function" && t.function) {
       converted.push({
-        name: t.function.name,
+        name: nameMap?.get(t.function.name) || t.function.name,
         description: t.function.description || "",
         input_schema: t.function.parameters || { type: "object", properties: {} },
       });
@@ -213,14 +213,43 @@ function openaiToolsToAnthropic(tools) {
   return converted.length ? converted : undefined;
 }
 
-function openaiToolChoiceToAnthropic(toolChoice) {
+function openaiToolChoiceToAnthropic(toolChoice, nameMap) {
   if (toolChoice === "auto") return { type: "auto" };
   if (toolChoice === "none") return { type: "none" };
   if (toolChoice === "required") return { type: "any" };
   if (toolChoice && typeof toolChoice === "object" && toolChoice.type === "function" && toolChoice.function?.name) {
-    return { type: "tool", name: toolChoice.function.name };
+    return { type: "tool", name: nameMap?.get(toolChoice.function.name) || toolChoice.function.name };
   }
   return undefined;
+}
+
+// Anthropic-compatible APIs (Bailian, etc.) require tool names to match
+// ^[a-zA-Z][a-zA-Z0-9_-]*$. Codex may send names that violate this, so we
+// sanitize on the way out and map back on the way in.
+function sanitizeToolName(name) {
+  let s = String(name).replace(/[^a-zA-Z0-9_-]/g, "_");
+  if (!/^[a-zA-Z]/.test(s)) s = "t_" + s;
+  return s;
+}
+
+function buildToolNameMap(tools) {
+  const forward = new Map();
+  const reverse = new Map();
+  if (!Array.isArray(tools)) return { forward, reverse };
+  for (const t of tools) {
+    if (t.type !== "function" || !t.function?.name) continue;
+    const original = t.function.name;
+    if (forward.has(original)) continue;
+    let sanitized = sanitizeToolName(original);
+    let unique = sanitized;
+    let counter = 1;
+    while (reverse.has(unique)) {
+      unique = `${sanitized}_${counter++}`;
+    }
+    forward.set(original, unique);
+    reverse.set(unique, original);
+  }
+  return { forward, reverse };
 }
 
 // ── Request handler ─────────────────────────────────────────────
@@ -252,6 +281,7 @@ async function handleResponses(req, res) {
   
   let upstreamBody;
   const headers = { "content-type": "application/json" };
+  const toolNameMap = buildToolNameMap(body.tools);
   if (isChat) {
     headers["Authorization"] = `Bearer ${provider.apiKey}`;
     upstreamBody = responsesToChat(body);
@@ -263,13 +293,13 @@ async function handleResponses(req, res) {
     headers["x-api-key"] = provider.apiKey;
     headers["Authorization"] = `Bearer ${provider.apiKey}`;
     headers["anthropic-version"] = "2023-06-01";
-    const { messages, system } = responsesToAnthropic(body);
+    const { messages, system } = responsesToAnthropic(body, toolNameMap.forward);
     upstreamBody = { model, max_tokens: body.max_output_tokens || 8192, messages, stream };
     if (system) upstreamBody.system = system;
     if (body.temperature != null) upstreamBody.temperature = body.temperature;
-    const anthropicTools = openaiToolsToAnthropic(body.tools);
+    const anthropicTools = openaiToolsToAnthropic(body.tools, toolNameMap.forward);
     if (anthropicTools) upstreamBody.tools = anthropicTools;
-    const anthropicToolChoice = openaiToolChoiceToAnthropic(body.tool_choice);
+    const anthropicToolChoice = openaiToolChoiceToAnthropic(body.tool_choice, toolNameMap.forward);
     if (anthropicToolChoice) upstreamBody.tool_choice = anthropicToolChoice;
   }
 
@@ -308,9 +338,10 @@ async function handleResponses(req, res) {
     } else {
       for (const c of data.content || []) {
         if (c.type === "text") text += c.text;
-        if (c.type === "tool_use") {
-          toolCalls.push({ id: c.id, type: "function_call", call_id: c.id, name: c.name, arguments: JSON.stringify(c.input || {}) });
-        }
+          if (c.type === "tool_use") {
+            const originalName = toolNameMap.reverse.get(c.name) || c.name;
+            toolCalls.push({ id: c.id, type: "function_call", call_id: c.id, name: originalName, arguments: JSON.stringify(c.input || {}) });
+          }
       }
     }
     const usage = data.usage ? {

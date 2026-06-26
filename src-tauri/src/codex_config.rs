@@ -163,11 +163,12 @@ pub async fn test_provider_connection(provider: &Provider) -> Result<String, Str
     let mut cmd = std::process::Command::new("curl");
     let auth_header = if is_chat { format!("Authorization: Bearer {}", provider.api_key) } else { format!("x-api-key: {}\nAuthorization: Bearer {}", provider.api_key, provider.api_key) };
     let header_path = write_curl_header_file(&auth_header)?;
-    cmd.arg("-s").arg("--fail").arg("--max-time").arg("10").arg("--noproxy").arg("*")
+    cmd.arg("-s").arg("--max-time").arg("10").arg("--noproxy").arg("*")
         .arg(&endpoint)
         .arg("-H").arg(format!("@{}", header_path.display()))
         .arg("-H").arg("content-type: application/json")
-        .arg("-d").arg(serde_json::to_string(&body).unwrap_or_default());
+        .arg("-d").arg(serde_json::to_string(&body).unwrap_or_default())
+        .arg("-w").arg("\nHTTP_STATUS:%{http_code}");
 
     if !is_chat { cmd.arg("-H").arg("anthropic-version: 2023-06-01"); }
 
@@ -182,12 +183,16 @@ pub async fn test_provider_connection(provider: &Provider) -> Result<String, Str
     let _ = fs::remove_file(&header_path);
     let output = output_res.map_err(|e| format!("curl error: {}", e))?;
 
-    if output.status.success() {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let status_match = stdout.rfind("HTTP_STATUS:");
+    let status = status_match.map(|i| stdout[i + 12..].trim().to_string()).unwrap_or_default();
+    let body_text = status_match.map(|i| stdout[..i].trim()).unwrap_or(stdout.trim());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    if status.starts_with('2') {
         Ok("ok".to_string())
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let msg = if stderr.is_empty() { stdout } else { stderr };
-        Err(msg.chars().take(200).collect())
+        let msg = if !stderr.is_empty() { stderr } else { body_text.into() };
+        Err(format!("HTTP {}: {}", status, msg.chars().take(300).collect::<String>()))
     }
 }
