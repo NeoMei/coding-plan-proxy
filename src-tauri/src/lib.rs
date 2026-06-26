@@ -102,14 +102,20 @@ pub fn run() {
                                             let _ = proxy.start(&proxy_path);
                                         }
                                     }
-                                    // Rebuild tray menu so the active marker moves, and notify UI
-                                    let _ = commands::rebuild_tray_menu(
-                                        app_handle.clone(),
-                                        app_handle.state::<Database>(),
-                                        app_handle.state::<crate::TrayState>(),
-                                        app_handle.state::<SharedProxyManager>(),
-                                    );
-                                    let _ = app_handle.emit("provider-changed", &pid);
+                                    // Rebuild tray menu so the active marker moves, and notify UI.
+                                    // Defer off the menu event callback to avoid reentrancy/deadlock.
+                                    let app_handle2 = app_handle.clone();
+                                    let pid2 = pid.clone();
+                                    std::thread::spawn(move || {
+                                        std::thread::sleep(std::time::Duration::from_millis(50));
+                                        let _ = commands::rebuild_tray_menu(
+                                            app_handle2.clone(),
+                                            app_handle2.state::<Database>(),
+                                            app_handle2.state::<crate::TrayState>(),
+                                            app_handle2.state::<SharedProxyManager>(),
+                                        );
+                                        let _ = app_handle2.emit("provider-changed", &pid2);
+                                    });
                                 }
                             }
                             _ => {}
