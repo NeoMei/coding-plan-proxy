@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Coding Plan Proxy",
+  "productName": "CodexProxy",
   "version": "1.0.0",
-  "identifier": "com.neomei.coding-plan-proxy",
+  "identifier": "com.neomei.codexproxy",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Coding Plan Proxy",
+        "title": "CodexProxy",
         "label": "main",
         "width": 900,
         "height": 650,

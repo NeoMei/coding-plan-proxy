@@ -1,5 +1,5 @@
 [package]
-name = "coding-plan-proxy"
+name = "codexproxy"
 version = "1.0.0"
 description = "Desktop manager for Coding Plan API providers — seamless Codex integration"
 authors = ["NeoMei"]

@@ -1,4 +1,4 @@
-# Coding Plan Proxy
+# CodexProxy
 
 桌面端管理工具，让 OpenAI Codex 无缝接入 Kimi、GLM、DeepSeek 等国产 Coding Plan API。
 

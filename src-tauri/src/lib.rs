@@ -54,7 +54,7 @@ pub fn run() {
             
             let mut tray_builder = TrayIconBuilder::new()
                 .menu(&menu)
-                .tooltip("Coding Plan Proxy");
+                .tooltip("CodexProxy");
             if let Some(icon) = app.default_window_icon().cloned() {
                 tray_builder = tray_builder.icon(icon);
             }

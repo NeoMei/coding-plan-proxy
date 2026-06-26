@@ -15,15 +15,15 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact: coding-plan-proxy_${{ github.ref_name }}_amd64
+            artifact: codexproxy_${{ github.ref_name }}_amd64
             ext: deb
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact: Coding-Plan-Proxy_${{ github.ref_name }}_aarch64
+            artifact: CodexProxy_${{ github.ref_name }}_aarch64
             ext: dmg
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact: Coding-Plan-Proxy_${{ github.ref_name }}_x64
+            artifact: CodexProxy_${{ github.ref_name }}_x64
             ext: msi
 
     runs-on: ${{ matrix.os }}
@@ -44,6 +44,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'Coding Plan Proxy ${{ github.ref_name }}'
+          releaseName: 'CodexProxy ${{ github.ref_name }}'
           releaseBody: 'See CHANGELOG for details.'
           args: --target ${{ matrix.target }}

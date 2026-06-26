@@ -1,4 +1,4 @@
-# AGENTS.md — Coding Plan Proxy
+# AGENTS.md — CodexProxy
 
 Tauri v2 desktop app + React/Vite frontend + embedded Node.js proxy. The app lets Codex talk to Chinese Coding Plan APIs by translating OpenAI Responses → Anthropic Messages (or Chat Completions) at `127.0.0.1:15731`.
 

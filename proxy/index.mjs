@@ -479,7 +479,7 @@ const server = http.createServer((req, res) => {
   if (req.method === "GET" && (req.url === "/health" || req.url === "/")) {
     return json(res, 200, {
       ok: true,
-      service: "coding-plan-proxy",
+      service: "codexproxy",
       version: "1.0.0",
       providers: Object.keys(PROVIDERS),
       docs: "https://github.com/NeoMei/coding-plan-proxy"
@@ -496,7 +496,7 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, BIND, () => {
-  log("info", `Coding Plan Proxy v1.0.0  →  http://${BIND}:${PORT}`);
+  log("info", `CodexProxy v1.0.0  →  http://${BIND}:${PORT}`);
   log("info", `Providers: ${Object.keys(PROVIDERS).join(", ")}`);
 });
 

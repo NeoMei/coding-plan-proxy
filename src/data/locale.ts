@@ -1,5 +1,5 @@
 const zh: Record<string, string> = {
-  "app.title": "Coding Plan Proxy",
+  "app.title": "CodexProxy",
   "proxy.running": "运行中",
   "proxy.stopped": "已停止",
   "proxy.start": "启动代理",
@@ -47,7 +47,7 @@ const zh: Record<string, string> = {
 };
 
 const en: Record<string, string> = {
-  "app.title": "Coding Plan Proxy",
+  "app.title": "CodexProxy",
   "proxy.running": "Running",
   "proxy.stopped": "Stopped",
   "proxy.start": "Start Proxy",
