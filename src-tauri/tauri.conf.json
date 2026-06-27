@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "CodexProxy",
-  "version": "1.0.0",
+  "version": "1.9.15",
   "identifier": "com.neomei.codexproxy",
   "build": {
     "frontendDist": "../dist",
